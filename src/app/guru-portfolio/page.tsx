@@ -1,9 +1,10 @@
 'use client'
-// 🐳 거인의 포트폴리오 — 전설적 투자자 9인의 13F 전체 보유 리스트(거인→종목 역방향 뷰). 기본 워런 버핏(버크셔).
+// 🐳 거인의 포트폴리오 — 추적 거장(guruFunds)의 13F 보유 리스트(거인→종목 역방향 뷰). 기본 워런 버핏(버크셔).
+//   주식 줄과 풋 · 콜을 따로 보여 준다(2026-11-28) — 풋은 '보유'가 아니고, 13F 의 옵션 금액은 옵션 값이 아니라 기초자산 시가다.
 import { useEffect, useState } from 'react'
 import type { GuruPortfolioResult, GuruPosition } from '@/app/api/guru-portfolio/route'
 import GuruConsensusPanel from '@/app/components/GuruConsensusPanel'
-import { TK, FONT_STACK } from '@/lib/theme'
+import { TK, FS, FONT_STACK } from '@/lib/theme'
 
 const CARD: React.CSSProperties = { background: TK.bg8, borderRadius: 14, padding: '16px 18px', border: `1px solid ${TK.border}` }
 const BUFFETT = '0001067983'
@@ -15,6 +16,9 @@ const ACT: Record<GuruPosition['action'], { ko: string; c: string; bg: string }>
   trim: { ko: '축소', c: TK.amber400, bg: 'rgba(251,191,36,0.12)' },
 }
 const fmtB = (v: number) => v >= 1e9 ? `$${(v / 1e9).toFixed(1)}B` : `$${(v / 1e6).toFixed(0)}M`
+// 풋 · 콜은 좋고 나쁨이 아니라 방향이다 — 등락색(빨강 · 초록)을 쓰지 않는다
+const PC = { put: { ko: '풋', c: TK.amber400, tip: '풋 = 정해 둔 값에 팔 권리. 주가가 내리면 값이 오르는 계약' }, call: { ko: '콜', c: TK.blue400, tip: '콜 = 정해 둔 값에 살 권리. 주가가 오르면 값이 오르는 계약' } } as const
+const NOTE: React.CSSProperties = { fontSize: FS.tiny, lineHeight: 1.65, color: TK.sub5, background: TK.bg3, border: `1px solid ${TK.border}`, borderRadius: 10, padding: '9px 12px' }
 
 export default function GuruPortfolioPage() {
   const [cik, setCik] = useState(BUFFETT)
@@ -52,14 +56,14 @@ export default function GuruPortfolioPage() {
             const off = !f.available && !on
             return (
               <button key={f.cik} disabled={off} onClick={() => setCik(f.cik)}
-                title={off ? 'SEC 13F 일시 지연 — 잠시 후 다시 시도하면 활성화됩니다' : ''}
+                title={off ? 'SEC 13F 일시 지연 — 잠시 후 다시 시도하면 활성화됩니다' : f.stale ? '최신 분기 신고가 없습니다 — 마지막 13F 를 보여 줍니다' : f.broad ? '수천 종목을 사고파는 운용사 — 합의 종목 · 수급 점수에는 세지 않습니다' : ''}
                 style={{
                   padding: '6px 12px', borderRadius: 8, cursor: off ? 'not-allowed' : 'pointer', fontSize: 12, fontWeight: 700,
                   border: `1px solid ${on ? TK.amber400 : TK.border}`,
                   background: on ? `${TK.amber400}18` : 'transparent',
                   color: on ? TK.amber400 : off ? TK.sub2 : TK.sub4,
                   opacity: off ? 0.45 : 1,
-                }}>{f.mgr}{off ? ' ⏳' : ''}</button>
+                }}>{f.mgr}{off ? ' ⏳' : f.stale ? ' · 마지막 신고' : ''}</button>
             )
           })}
         </div>
@@ -78,9 +82,23 @@ export default function GuruPortfolioPage() {
             <span style={{ fontSize: 16, fontWeight: 900, color: TK.slate100 }}>{data.mgr}</span>
             <span style={{ fontSize: 12.5, color: TK.sub4 }}>{data.fund}</span>
             <span style={{ marginLeft: 'auto', fontSize: 11.5, color: TK.sub4 }}>
-              신고 총액 <b style={{ color: TK.slate200 }}>{fmtB(data.total)}</b> · {data.count}종목 · {data.asOf} 공시
+              주식 신고액 <b style={{ color: TK.slate200 }}>{fmtB(data.total)}</b> · {data.count}종목 · {data.reportDate} 분기말 보유 · {data.asOf} 공시
             </span>
           </div>
+
+          {data.stale && (
+            <div style={NOTE}>
+              🕰️ <b style={{ color: TK.slate200 }}>마지막 13F 입니다 — {data.reportDate} 분기말의 사진</b>. 그 뒤 분기에는 보유 신고가 없습니다(신고를 다른 법인으로 넘겼거나 신고 대상에서 빠진 경우).
+              지금 보유와 다를 수 있어 <b>합의 종목 · 종목별 &lsquo;거인 보유&rsquo; · 수급 점수에는 쓰지 않습니다.</b>
+            </div>
+          )}
+          {data.broad && (
+            <div style={NOTE}>
+              🌊 <b style={{ color: TK.slate200 }}>수천 종목을 사고파는 운용사입니다</b> — 13F {data.lines.toLocaleString()}줄 중 주식 {data.stockLines.toLocaleString()}줄 · 풋 · 콜 {data.optLines.toLocaleString()}줄.
+              상위 보유는 &lsquo;확신해서 담은 종목&rsquo;이 아니라 헤지 · 차익거래의 한쪽일 수 있습니다. 그래서 <b>합의 종목 · 수급 점수에는 세지 않고, 추정 수익도 계산하지 않습니다</b>(분기말 사진 사이에 수없이 사고팝니다).
+              {data.keptPct != null && <> 줄이 많아 금액 상위 줄만 읽었습니다(주식 금액의 {data.keptPct}%).</>}
+            </div>
+          )}
 
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
             <thead><tr style={{ color: TK.sub4, fontSize: 10.5 }}>
@@ -100,6 +118,7 @@ export default function GuruPortfolioPage() {
                   <td style={{ padding: '6px 6px', color: TK.sub4, fontFamily: 'monospace' }}>{i + 1}</td>
                   <td style={{ padding: '6px 6px', color: TK.slate200, fontWeight: 700 }}>
                     {p.name}{p.ticker && <span style={{ color: TK.sub4, fontWeight: 600, fontSize: 10.5, marginLeft: 5 }}>{p.ticker}</span>}
+                    {p.self && <span title="발행사 이름이 신고한 법인 이름과 같습니다 — 남의 회사에 투자한 것이 아니라 자기 회사 주식 줄입니다. 비중을 읽을 때 빼고 보세요." style={{ color: TK.sub4, fontWeight: 700, fontSize: FS.micro, marginLeft: 6, border: `1px solid ${TK.border}`, borderRadius: 5, padding: '0 5px', cursor: 'help' }}>자기 회사 주식</span>}
                   </td>
                   <td style={{ padding: '6px 6px', textAlign: 'right', color: TK.slate200, fontWeight: 800 }}>{p.pctPort}%</td>
                   <td style={{ padding: '6px 6px', textAlign: 'right', color: TK.sub5 }}>{fmtB(p.value)}</td>
@@ -125,6 +144,57 @@ export default function GuruPortfolioPage() {
               ))}
             </tbody>
           </table>
+          {data.bondLines > 0 && <div style={{ fontSize: FS.micro, color: TK.sub2 }}>채권 등 {data.bondLines}줄({fmtB(data.bondVal)})은 수량이 주식 수가 아니라 액면이라 이 표에서 뺐습니다.</div>}
+        </div>
+      )}
+
+      {/* 풋 · 콜 — 주식 보유와 섞지 않는다 */}
+      {data?.status === 'ok' && data.optLines > 0 && (
+        <div style={{ ...CARD, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 14, fontWeight: 900, color: TK.slate100 }}>풋 · 콜(옵션) 신고</span>
+            <span style={{ fontSize: FS.tiny, color: TK.sub4 }}>
+              풋 <b style={{ color: PC.put.c }}>{fmtB(data.optPutVal)}</b> · 콜 <b style={{ color: PC.call.c }}>{fmtB(data.optCallVal)}</b> · {data.optLines.toLocaleString()}줄{data.options.length < data.optLines ? ` 중 금액 큰 ${data.options.length}개` : ''}
+            </span>
+          </div>
+          <div style={NOTE}>
+            ⚠️ <b style={{ color: TK.slate200 }}>이 금액은 옵션에 낸 돈이 아닙니다</b> — 13F 는 옵션을 &lsquo;그 옵션이 걸린 주식의 시가&rsquo;로 적게 돼 있어 실제 베팅보다 훨씬 크게 보입니다.
+            행사가 · 만기도 신고되지 않습니다. 그래서 <b>방향(풋인지 콜인지)과 전분기 대비 늘었는지 줄었는지</b>만 읽으세요. 풋은 보유 주식의 보험(헤지)일 수도 있습니다.
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', minWidth: 460, borderCollapse: 'collapse', fontSize: 12 }}>
+              <thead><tr style={{ color: TK.sub4, fontSize: 10.5 }}>
+                <th style={{ textAlign: 'left', padding: '4px 6px', width: 28 }}>#</th>
+                <th style={{ textAlign: 'left', padding: '4px 6px' }}>옵션이 걸린 종목</th>
+                <th style={{ textAlign: 'center', padding: '4px 6px' }}>방향</th>
+                <th style={{ textAlign: 'right', padding: '4px 6px' }}>걸린 주식 수</th>
+                <th style={{ textAlign: 'right', padding: '4px 6px' }}>그 주식의 시가</th>
+                <th style={{ textAlign: 'center', padding: '4px 6px' }}>전분기</th>
+              </tr></thead>
+              <tbody>
+                {data.options.map((o, i) => (
+                  <tr key={`${o.name}${o.pc}`} style={{ borderTop: `1px solid ${TK.border}` }}>
+                    <td style={{ padding: '6px 6px', color: TK.sub4, fontFamily: 'monospace' }}>{i + 1}</td>
+                    <td style={{ padding: '6px 6px', color: TK.slate200, fontWeight: 700 }}>{o.name}{o.ticker && <span style={{ color: TK.sub4, fontWeight: 600, fontSize: 10.5, marginLeft: 5 }}>{o.ticker}</span>}</td>
+                    <td style={{ padding: '6px 6px', textAlign: 'center' }}><span title={PC[o.pc].tip} style={{ fontSize: 10.5, fontWeight: 800, color: PC[o.pc].c, border: `1px solid ${PC[o.pc].c}55`, borderRadius: 6, padding: '1px 8px', cursor: 'help' }}>{PC[o.pc].ko}</span></td>
+                    <td style={{ padding: '6px 6px', textAlign: 'right', color: TK.sub5, fontFamily: 'monospace' }}>{o.shares.toLocaleString()}</td>
+                    <td style={{ padding: '6px 6px', textAlign: 'right', color: TK.sub5 }}>{fmtB(o.value)}</td>
+                    <td style={{ padding: '6px 6px', textAlign: 'center' }}>
+                      <span style={{ fontSize: 10, fontWeight: 800, color: ACT[o.action].c, background: ACT[o.action].bg, borderRadius: 6, padding: '2px 7px' }}>
+                        {o.action === 'new' ? '신규' : o.action === 'add' ? '늘림' : o.action === 'trim' ? '줄임' : '유지'}{o.deltaPct != null && (o.action === 'add' || o.action === 'trim') ? ` ${o.deltaPct > 0 ? '+' : ''}${o.deltaPct}%` : ''}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {data.optExits.length > 0 && (
+            <div style={{ fontSize: FS.tiny, color: TK.sub5, lineHeight: 1.7 }}>
+              <b style={{ color: TK.slate200 }}>전분기 신고에는 있었고 이번 신고에는 없는 옵션</b>(정리했거나 만기가 지난 것) —{' '}
+              {data.optExits.slice(0, 12).map(x => `${x.ticker ?? x.name} ${PC[x.pc].ko}`).join(' · ')}{data.optExits.length > 12 ? ` 외 ${data.optExits.length - 12}개` : ''}
+            </div>
+          )}
         </div>
       )}
 
@@ -145,7 +215,7 @@ export default function GuruPortfolioPage() {
 
       <div style={{ fontSize: 10.5, color: TK.sub2, lineHeight: 1.7 }}>
         ⚠️ <b>13F는 분기 종료 후 최대 45일 뒤 공시</b>됩니다 — 거인들의 &lsquo;현재&rsquo;가 아니라 <b>과거 스냅샷</b>입니다(그 사이 이미 바뀌었을 수 있음).
-        13F는 <b>미국 상장 롱 포지션만</b> 담습니다(공매도·해외주식·현금·채권 제외) — 버크셔의 현금성 자산·일본 상사·비상장 자회사는 안 보입니다.
+        13F는 <b>미국 상장 주식과 그 옵션 · 전환사채만</b> 담습니다(공매도·해외주식·현금 제외) — 버크셔의 현금성 자산·일본 상사·비상장 자회사는 안 보입니다.
         <b style={{ color: TK.amber400 }}>두 수익률 모두 &lsquo;참고 추정치&rsquo;입니다</b> — <b>공시 후</b>는 공시일({data?.asOf ?? '—'}) 종가 대비 현재 등락(거인 실제수익 아님), <b>추정 수익</b>은 최근 약 2년 13F 매집분을 그 분기 평균가로 역산한 값(장외·특수계약 단가와 다를 수 있고, 2년 이전 매입은 &lsquo;장기보유&rsquo;로 추정 불가). 유명 대형주만 매핑됩니다.
         <b>거인을 맹목적으로 복제하지 말고, 그들이 본 가치를 스스로 확인하는 훈련</b>으로 쓰세요. 매수·매도 권유 아님.
       </div>

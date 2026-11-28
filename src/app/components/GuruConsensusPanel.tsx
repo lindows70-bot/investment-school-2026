@@ -1,5 +1,5 @@
 'use client'
-// 🤝 거장들의 합의 종목 패널 — 9인 전설의 상위 10위권에서 2명 이상 겹치는 종목(consensus picks). 투자의 재미·교육용.
+// 🤝 거장들의 합의 종목 패널 — 추적 거장의 상위 10위권에서 2명 이상 겹치는 종목(consensus picks). 투자의 재미·교육용.
 import { useEffect, useState } from 'react'
 import type { GuruConsensusResult } from '@/app/api/guru-consensus/route'
 import { TK } from '@/lib/theme'
@@ -26,11 +26,11 @@ export default function GuruConsensusPanel() {
     <div style={{ ...CARD, display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 15, fontWeight: 900, color: TK.slate100 }}>🤝 거장들의 합의 종목</span>
-        <span style={{ fontSize: 11.5, color: TK.sub4 }}>{data?.trackedFunds ?? 9}인 전설 중 <b style={{ color: TK.slate200 }}>2명 이상</b>이 상위 10위권에 담은 종목 — 서로 모르는 대가들이 같은 배를 탄 곳</span>
+        <span style={{ fontSize: 11.5, color: TK.sub4 }}>{data ? `전설 ${data.trackedFunds}인 중 ` : ''}<b style={{ color: TK.slate200 }}>2명 이상</b>이 상위 10위권에 담은 종목 — 서로 모르는 대가들이 같은 배를 탄 곳</span>
       </div>
 
       {err && <div style={{ color: TK.sub4, fontSize: 12 }}>합의 데이터를 불러오지 못했습니다.</div>}
-      {!data && !err && <div style={{ color: TK.sub4, fontSize: 12 }}>🤝 9인의 상위 보유를 교차 분석 중…</div>}
+      {!data && !err && <div style={{ color: TK.sub4, fontSize: 12 }}>🤝 거장들의 상위 보유를 교차 분석 중…</div>}
 
       {data?.status === 'ok' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 8 }}>
@@ -54,6 +54,18 @@ export default function GuruConsensusPanel() {
               </div>
             )
           })}
+        </div>
+      )}
+      {/* 뺀 사람과 이유 — 숨기면 '14명을 추적한다면서 왜 N명 중이냐'가 된다 */}
+      {data?.excluded && data.excluded.length > 0 && (
+        <div style={{ fontSize: 10, color: TK.sub2, lineHeight: 1.6 }}>
+          {(() => {
+            const b = data.excluded.filter(e => e.why === 'broad').map(e => e.mgr), s = data.excluded.filter(e => e.why === 'stale').map(e => e.mgr)
+            return [
+              b.length ? `${b.join(' · ')} — 수천 종목을 사고파는 운용사라 상위 보유가 지수 ETF 입니다(확신 종목이 아니라서 뺌)` : null,
+              s.length ? `${s.join(' · ')} — 최신 분기 신고가 없어 뺌(지금 보유가 아님)` : null,
+            ].filter(Boolean).join(' / ')
+          })()}
         </div>
       )}
       <div style={{ fontSize: 10, color: TK.sub2, lineHeight: 1.6 }}>

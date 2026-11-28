@@ -208,9 +208,11 @@ async function fetch13F(ticker: string, name: string, selfBase?: string): Promis
     if (!r.ok) return { holders: 0, trend: 'none', ok: false }
     const j = (await r.json()) as ShadowResult
     if (j.status !== 'ok' && j.status !== 'none') return { holders: 0, trend: 'none', ok: false }
-    const owning = (j.holders ?? []).filter(h => h.action !== 'exit')
+    // 수천 종목을 사고파는 운용사(broad — 시타델 · 튜더)는 세지 않는다: 거의 모든 종목을 들고 있어 넣으면 수급 점수(+6 · +14)가 미국 종목 전체에 붙는다
+    const conv = (j.holders ?? []).filter(h => !h.broad)
+    const owning = conv.filter(h => h.action !== 'exit')
     const adders = owning.filter(h => h.action === 'add' || h.action === 'new').length
-    const cutters = (j.holders ?? []).filter(h => h.action === 'trim' || h.action === 'exit').length
+    const cutters = conv.filter(h => h.action === 'trim' || h.action === 'exit').length
     const trend: UsFlow['giantTrend'] = adders > 0 && cutters > 0 ? 'mixed' : adders > 0 ? 'add' : cutters > 0 ? 'cut' : 'none'
     return { holders: owning.length, trend, ok: true }   // status ok/none = 정상 조회(none=정말 미보유)
   } catch { return { holders: 0, trend: 'none', ok: false } }
@@ -288,7 +290,7 @@ function judgeUs(us: UsFlow, nearHigh: boolean): { status: FlowStatus; badges: s
       actionGuide: '추격 매수보다 자금흐름·기관 동향이 식는지 관망하세요. 좋은 기업도 과열 구간 진입은 손실 회피에 불리합니다.',
     }
   }
-  // US 소외 판정은 제거 — 추적 거인 9인뿐이라 0이 흔하고 매칭 미스 가능(거짓 '소외주' 방지)
+  // US 소외 판정은 제거 — 추적 거인이 열 명 남짓이라 0이 흔하고 매칭 미스 가능(거짓 '소외주' 방지)
   const instNote = us.instTrend === 'accum' ? ' 다만 Top 기관은 분기 순매집 중입니다.'
     : us.instTrend === 'distrib' ? ' Top 기관은 분기 지분을 소폭 줄였습니다.' : ''
   return {

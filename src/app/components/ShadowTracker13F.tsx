@@ -89,7 +89,7 @@ export default function ShadowTracker13F({ ticker, name, market }: Props) {
   )
 
   const hasLegend = data.holders.some(h => h.isLegend)
-  const owning = data.holders.filter(h => h.action !== 'exit')
+  const owning = data.holders.filter(h => h.action !== 'exit' && !h.broad)   // 수천 종목을 사고파는 운용사는 인원에 세지 않는다(행에는 표시를 달아 보여 준다)
   const accent = hasLegend ? C.cyan : C.purple
   const asOf = data.asOf?.slice(0, isKR ? undefined : 10) || ''
   const pctLabel = isKR ? '지분율' : '비중'
@@ -97,7 +97,7 @@ export default function ShadowTracker13F({ ticker, name, market }: Props) {
 
   const banner = isKR
     ? (hasLegend ? `🏛️ 국민연금(NPS)이 ${data.name} 보유 — 거인이 뒤를 받친다` : `🏛️ 설립자·핵심 경영진이 ${data.name} 굳건히 보유`)
-    : `🐳 전설 ${owning.length}명이 ${data.name} 보유 중`
+    : owning.length > 0 ? `🐳 전설 ${owning.length}명이 ${data.name} 보유 중` : `🔍 ${data.name}을(를) 크게 담은 전설은 없음`
 
   return Wrap(
     <>
@@ -128,12 +128,13 @@ export default function ShadowTracker13F({ ticker, name, market }: Props) {
                 return (
                   <tr key={i} style={{
                     borderTop: `1px solid ${C.border}`,
-                    opacity: isExit ? 0.7 : 1,
+                    opacity: isExit || h.broad ? 0.7 : 1,
                     background: h.isLegend ? `${C.cyan}10` : 'transparent',
                   }}>
                     <td style={{ textAlign: 'left', padding: '9px 4px' }}>
                       <div style={{ fontSize: 12.5, fontWeight: 800, color: h.isLegend ? C.cyan : C.text }}>
                         {h.mgr}{h.isLegend && <span style={{ fontSize: 9, color: C.cyan, marginLeft: 6, fontWeight: 700 }}>★ 거인</span>}
+                        {h.broad && <span title="수천 종목을 사고파는 운용사 — 거의 모든 종목을 들고 있어 보유가 확신 신호가 아닙니다. 보유 인원 · 수급 점수에는 세지 않습니다." style={{ fontSize: 9, color: C.textLow, marginLeft: 6, fontWeight: 700, cursor: 'help' }}>수천 종목 운용사 · 인원에 안 셈</span>}
                       </div>
                       <div style={{ fontSize: 9.5, color: C.textLow, marginTop: 1 }}>{h.fund}</div>
                     </td>
@@ -164,7 +165,7 @@ export default function ShadowTracker13F({ ticker, name, market }: Props) {
       <div style={{ marginTop: 12, fontSize: 9.5, color: C.textLow, lineHeight: 1.6 }}>
         🐳 {data.lagNote} · {isKR
           ? '출처: 금융감독원 DART 최대주주 현황 · 평가액=보유주식수×현재가(추정) · 지분율=발행주식 대비'
-          : '발행사명 매칭 기반(일부 약어 종목 누락 가능) · 비중=펀드 포트폴리오 내 평가액 비율'} · 교육용 참고이며 투자 추천이 아닙니다.
+          : '발행사명 매칭 기반(일부 약어 종목 누락 가능) · 비중=펀드가 신고한 주식 금액 중 이 종목 비율(풋 · 콜 · 채권 제외) · 최신 분기 신고가 없는 법인은 제외'} · 교육용 참고이며 투자 추천이 아닙니다.
       </div>
     </>,
     `${accent}55`

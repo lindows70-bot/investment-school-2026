@@ -1,4 +1,6 @@
-// 🤝 거장들의 합의 종목 — 9인 전설의 '상위 10위권'에서 2명 이상 겹치는 종목(consensus picks). 투자의 재미·교육용.
+// 🤝 거장들의 합의 종목 — 추적 거장의 '상위 10위권'에서 2명 이상 겹치는 종목(consensus picks). 투자의 재미·교육용.
+//   ⚠️ 겹침을 세는 건 '확신해서 크게 담은 종목'이라서다 — 수천 종목을 사고파는 운용사(broad)와 최신 분기 신고가 없는 법인(stale)은 빼고,
+//      뺀 사람과 이유를 응답에 싣는다(excluded). 넣으면 지수 ETF 가 '합의 1위'가 된다(시타델 · 튜더 주식 줄 1위가 S&P 500 ETF).
 //   loadFunds(12h 캐시) 재사용, CUSIP으로 종목 동일성 판정(이름 드리프트 방어). 몇 명이 겹치나·각자 순위·비중.
 import { NextResponse } from 'next/server'
 import { loadFunds } from '@/lib/guru13f'
@@ -12,8 +14,9 @@ export interface ConsensusStock { name: string; ticker: string | null; count: nu
 export interface GuruConsensusResult {
   status: 'ok' | 'error'
   asOf: string
-  trackedFunds: number
+  trackedFunds: number          // 겹침을 센 사람 수(excluded 제외)
   stocks: ConsensusStock[]      // 2명 이상 겹치는 종목, 겹친 수 많은 순
+  excluded?: { mgr: string; why: 'broad' | 'stale' }[]
   message?: string
 }
 
@@ -21,7 +24,9 @@ const TOP_N = 10   // 각 거장의 상위 N위권만 대상(핵심 확신 종�
 
 export async function GET() {
   try {
-    const funds = await loadFunds()
+    const all = await loadFunds()
+    const funds = all.filter(f => !f.broad && !f.stale)
+    const excluded = all.filter(f => f.broad || f.stale).map(f => ({ mgr: f.mgr, why: f.stale ? 'stale' as const : 'broad' as const }))
     if (!funds.length) return NextResponse.json({ status: 'error', asOf: '', trackedFunds: 0, stocks: [], message: 'SEC 13F 데이터를 불러오지 못했습니다.' } satisfies GuruConsensusResult)
 
     // key(티커 우선, 없으면 CUSIP) → { name, ticker, holders[] } — 티커 병합으로 GOOGL/GOOG·BRK-A/B 등 주식클래스 합침(회사 단위 합의)
@@ -56,7 +61,7 @@ export async function GET() {
       .sort((a, b) => b.count - a.count || Math.max(...b.holders.map(h => h.pctPort)) - Math.max(...a.holders.map(h => h.pctPort)))
 
     const asOf = funds.map(f => f.asOf).sort().reverse()[0] ?? ''
-    return NextResponse.json({ status: 'ok', asOf, trackedFunds: funds.length, stocks } satisfies GuruConsensusResult, { headers: { 'Cache-Control': 'no-store' } })
+    return NextResponse.json({ status: 'ok', asOf, trackedFunds: funds.length, stocks, excluded } satisfies GuruConsensusResult, { headers: { 'Cache-Control': 'no-store' } })
   } catch (e) {
     return NextResponse.json({ status: 'error', asOf: '', trackedFunds: 0, stocks: [], message: (e as Error).message } satisfies GuruConsensusResult)
   }

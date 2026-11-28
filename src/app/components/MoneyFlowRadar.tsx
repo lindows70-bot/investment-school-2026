@@ -74,7 +74,7 @@ function UsBody({ us }: { us: UsFlow }) {
           </span>
         )}
         <span style={{ background: us.giantHolders > 0 ? 'rgba(59,130,246,0.12)' : TK.bg3, color: us.giantHolders > 0 ? TK.blue400 : TK.sub, border: `1px solid ${us.giantHolders > 0 ? `${TK.blue500}44` : TK.border}`, borderRadius: 8, padding: '4px 11px', fontSize: FS.tiny, fontWeight: 600 }}>
-          {!us.giantKnown ? '🐳 13F 집계 중' : us.giantHolders > 0 ? `🐳 13F 거인 ${us.giantHolders}인 보유 · ${TREND_KR[us.giantTrend]}` : '🐳 추적 거인(9인) 없음'}
+          {!us.giantKnown ? '🐳 13F 집계 중' : us.giantHolders > 0 ? `🐳 13F 거인 ${us.giantHolders}인 보유 · ${TREND_KR[us.giantTrend]}` : '🐳 추적 거인 보유 없음'}
         </span>
       </div>
     </div>

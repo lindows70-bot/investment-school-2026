@@ -6,7 +6,7 @@
  * 피터 린치: "아마추어가 프로를 이기는 길은, 프로가 무엇을 사는지 훔쳐보는 것이 아니라
  *            왜 사는지를 이해하는 것이다." — 그래서 우리는 '무엇'을 보여주되 '왜'를 묻게 한다.
  *
- * 미국 전설적 투자자 9인의 분기 13F-HR(SEC 의무공시)을 파싱해,
+ * 추적 거장(guruFunds.FUNDS)의 분기 13F-HR(SEC 의무공시)을 파싱해,
  * "내가 보유한 종목을 거인 중 누가 들고 있나 + 지난 분기 늘렸나/줄였나"를 보여준다.
  *
  * ── 설계 원칙 ──
@@ -18,7 +18,9 @@
  * ⚠️ 핵심 교훈
  *  · SEC는 Node https 모듈로 (undici fetch 금지 — gzip 응답 깨짐 버그).
  *  · 13F 정보테이블 XML 태그엔 네임스페이스가 없음 → 단순 <tag>…</tag> 정규식.
- *  · 13F value 필드는 '달러 원금'(2023년 이후) — /1e9 = $B.
+ *  · 13F value 필드는 '달러 원금'(2023년 이후)이 규칙이지만 천 달러로 적는 법인이 남아 있다 → 로더가 값으로 판별해 달러로 맞춘다.
+ *  · 보유로 세는 건 주식 줄뿐(풋 · 콜 · 채권 제외 — guru13fParse). 최신 분기 신고가 없는 법인(stale)은 '지금 보유'로 쓰지 않는다.
+ *  · 수천 종목을 사고파는 운용사(broad — 시타델 · 튜더)는 목록에는 보이되 표시를 달고, 보유 인원 · 수급 점수에는 세지 않는다.
  *  · 13F는 발행사명을 약어/법인명("BANK AMER CORP","OCCIDENTAL PETE CORP")으로 적어
  *    Yahoo 종목명과 단순 일치가 안 됨 → 토큰 정규화(불용어·하이픈 제거)+프리픽스 매칭.
  *  · 한국엔 분기별 기관보유(13F) 의무공시 제도가 없음 → US 전용(정직).
@@ -44,6 +46,7 @@ export interface ShadowHolder {
   deltaPct: number | null          // 전분기(US)·전기(KR) 대비 주식수 증감 (%)
   asOf:     string                 // 기준 제출일/공시일
   isLegend?: boolean               // KR: 국민연금 등 '거인' 강조
+  broad?: boolean                  // US: 수천 종목을 사고파는 운용사 — 보유가 확신 신호가 아니다(인원 · 점수에 세지 않는다)
 }
 export interface ShadowResult {
   status:    'ok' | 'none' | 'unsupported' | 'error'
@@ -84,7 +87,8 @@ function nameMatch(targetToks: string[], holdName: string): boolean {
 }
 
 // ── 린치 코멘트 (결정론적) ──────────────────────────────────────────────────────
-function lynchComment(holders: ShadowHolder[], name: string): string {
+function lynchComment(all: ShadowHolder[], name: string, tracked: number): string {
+  const holders = all.filter(h => !h.broad)   // 확신해서 담는 쪽만 센다
   const owning = holders.filter(h => h.action !== 'exit')
   const exiters = holders.filter(h => h.action === 'exit')
   if (!owning.length && exiters.length) {
@@ -92,7 +96,7 @@ function lynchComment(holders: ShadowHolder[], name: string): string {
       `거인이 떠난 데는 이유가 있을 수 있지만, 13F는 45일 늦은 '과거의 결정'임을 잊지 마. 결국 네 판단이 중요해.`
   }
   if (!owning.length) {
-    return `추적 중인 9명의 전설적 투자자 중 누구도 ${name}을(를) 들고 있지 않아. ` +
+    return `추적 중인 전설적 투자자 ${tracked}명 중 누구도 ${name}을(를) 크게 담고 있지 않아. ` +
       `군중과 다른 길일 수도, 아직 거인들이 발견하지 못한 보석일 수도 있지. 거인을 따라가는 게 아니라, 거인이 왜 샀는지(혹은 안 샀는지)를 생각하는 게 진짜 공부야.`
   }
   const adders = owning.filter(h => h.action === 'add' || h.action === 'new')
@@ -278,6 +282,7 @@ export async function GET(req: Request) {
     const tT = toks(name || ticker)
     const holders: ShadowHolder[] = []
     for (const fd of funds) {
+      if (fd.stale) continue   // 최신 분기 신고가 없는 법인(버리 · 오크트리) — 한참 전 사진을 '지금 보유'로 보여 주지 않는다
       const curHits = fd.cur.filter(h => nameMatch(tT, h.name))
       const prevHits = fd.prev.filter(h => nameMatch(tT, h.name))
       const curSh = curHits.reduce((s, h) => s + h.sh, 0)
@@ -298,12 +303,14 @@ export async function GET(req: Request) {
         shares: curSh, value: curVal,
         pctPort: fd.total > 0 ? Math.round((curVal / fd.total) * 1000) / 10 : 0,
         action, deltaPct, asOf: fd.asOf,
+        ...(fd.broad ? { broad: true } : {}),
       })
     }
 
-    // 정렬: 보유 거인을 비중(확신) 큰 순으로, 청산(exit)은 맨 뒤
-    const rank = (a: ShadowHolder['action']) => a === 'exit' ? 1 : 0
-    holders.sort((a, b) => rank(a.action) - rank(b.action) || b.pctPort - a.pctPort || b.value - a.value)
+    // 정렬: 보유 거인을 비중(확신) 큰 순으로, 청산(exit)은 뒤로, 수천 종목을 사고파는 운용사(broad)는 맨 뒤
+    const rank = (h: ShadowHolder) => (h.broad ? 2 : 0) + (h.action === 'exit' ? 1 : 0)
+    holders.sort((a, b) => rank(a) - rank(b) || b.pctPort - a.pctPort || b.value - a.value)
+    const tracked = funds.filter(f => !f.stale && !f.broad).length
 
     const latestAsOf = funds.map(f => f.asOf).sort().reverse()[0] || asOfNow
     const result: ShadowResult = {
@@ -312,7 +319,8 @@ export async function GET(req: Request) {
       holders,
       asOf: latestAsOf,
       lagNote: '13F는 분기 종료 후 최대 45일 뒤 공시됩니다 — 거인들의 현재가 아닌 과거 결정입니다.',
-      lynchComment: lynchComment(holders, name || ticker),
+      trackedFunds: tracked,
+      lynchComment: lynchComment(holders, name || ticker, tracked),
     }
     return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
   } catch (e) {
