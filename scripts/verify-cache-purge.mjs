@@ -265,7 +265,8 @@ check('규칙 파일을 못 읽으면 파서가 0종을 돌려준다(훅은 이�
     git(['read-tree', 'HEAD'])
     if (noRules) git(['update-index', '--force-remove', 'src/lib/cachePurge.ts'])
     else {
-      const rb = git(['hash-object', '-w', '--stdin'], purgeSrc).stdout.trim()
+      // 줄바꿈을 LF 로 맞춰 넣는다 — 작업 트리가 CRLF 로 체크아웃된 날엔 HEAD(LF)와 다른 blob 이 되어 파일 전체가 '바뀐 줄'로 보이고 훅이 거짓으로 막는다(2026-11-28 실측)
+      const rb = git(['hash-object', '-w', '--stdin'], purgeSrc.replace(/\r\n/g, '\n')).stdout.trim()
       git(['update-index', '--add', '--cacheinfo', `100644,${rb},src/lib/cachePurge.ts`])
     }
     const blob = git(['hash-object', '-w', '--stdin'], body).stdout.trim()
