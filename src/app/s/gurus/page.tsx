@@ -95,9 +95,9 @@ export default function StudentGurus() {
                 <>
                   <span style={{ width: 22, flexShrink: 0, fontSize: FS.tiny, color: TK.sub }}>{i + 1}</span>
                   <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flexGrow: 1 }}>
-                    <span style={{ fontSize: FS.body, fontWeight: 700, color: TK.slate100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}{p.self === true ? <span style={{ fontSize: FS.micro, fontWeight: 500, color: TK.sub, marginLeft: SP.xs }}>자기 회사 주식</span> : null}{ticker ? <span style={{ fontSize: FS.micro, fontWeight: 500, color: TK.sub, marginLeft: SP.xs }}>{ticker}</span> : null}</span>
+                    <span style={{ fontSize: FS.body, fontWeight: 700, color: TK.slate100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}{ticker ? <span style={{ fontSize: FS.micro, fontWeight: 500, color: TK.sub, marginLeft: SP.xs }}>{ticker}</span> : null}</span>
                     {/* 행동은 색 없이 — 좋고 나쁨이 아니다(등락색은 가격 등락·내 손익에만) */}
-                    <span style={{ fontSize: FS.micro, color: TK.sub }}>{[action, delta != null && action !== '그대로' ? `주식 수 ${delta > 0 ? '+' : ''}${delta.toFixed(0)}%` : null].filter(Boolean).join(' · ') || '전분기 대비 모름'}</span>
+                    <span style={{ fontSize: FS.micro, color: TK.sub }}>{[p.self === true ? '자기 회사 주식' : null, action, delta != null && action !== '그대로' ? `주식 수 ${delta > 0 ? '+' : ''}${delta.toFixed(0)}%` : null].filter(Boolean).join(' · ') || '전분기 대비 모름'}</span>
                   </span>
                   <span style={{ flexShrink: 0, fontSize: FS.body, fontWeight: 700, color: TK.slate100 }}>{w == null ? '비중 모름' : pct1(w)}</span>
                 </>
@@ -123,9 +123,10 @@ export default function StudentGurus() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: SP.xs, paddingTop: SP.sm, borderTop: `1px solid ${TK.border}` }}>
             <h3 style={{ margin: 0, fontSize: FS.body, fontWeight: 700, color: TK.slate100 }}>주식 말고 걸어 둔 계약(옵션)</h3>
             {options.map((o, i) => (
-              <div key={`${String(o.name)}${String(o.pc)}${i}`} style={{ display: 'flex', alignItems: 'center', gap: SP.sm, minHeight: 44, minWidth: 0 }}>
-                <span style={{ minWidth: 0, flexGrow: 1, fontSize: FS.body, fontWeight: 700, color: TK.slate100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{String(o.name)}</span>
-                <span style={{ flexShrink: 0, fontSize: FS.micro, color: TK.slate300, textAlign: 'right' }}>{PC_KO[o.pc as string]}{typeof o.action === 'string' && OPT_ACTION_KO[o.action] ? ` · ${OPT_ACTION_KO[o.action]}` : ''}</span>
+              // 이름과 설명을 두 줄로 — 한 줄에 나란히 두면 375 폭에서 이름이 'STATE STR SPDR S&P…'로 잘린다
+              <div key={`${String(o.name)}${String(o.pc)}${i}`} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: 52, minWidth: 0, borderTop: `1px solid ${TK.border}` }}>
+                <span style={{ fontSize: FS.body, fontWeight: 700, color: TK.slate100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{String(o.name)}{typeof o.ticker === 'string' ? <span style={{ fontSize: FS.micro, fontWeight: 500, color: TK.sub, marginLeft: SP.xs }}>{o.ticker}</span> : null}</span>
+                <span style={{ fontSize: FS.micro, color: TK.slate300 }}>{PC_KO[o.pc as string]}{typeof o.action === 'string' && OPT_ACTION_KO[o.action] ? ` · ${OPT_ACTION_KO[o.action]}` : ''}</span>
               </div>
             ))}
             <span style={noteStyle()}>

@@ -100,8 +100,10 @@ export default function GuruPortfolioPage() {
             </div>
           )}
 
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-            <thead><tr style={{ color: TK.sub4, fontSize: 10.5 }}>
+          {/* 좁은 폭에서 표가 카드 밖으로 밀려 머리글이 세로로 찍혔다(375 실측) → 가로 스크롤 + 최소 폭 */}
+          <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', minWidth: 560, borderCollapse: 'collapse', fontSize: 12 }}>
+            <thead><tr style={{ color: TK.sub4, fontSize: 10.5, whiteSpace: 'nowrap' }}>
               <th style={{ textAlign: 'left', padding: '4px 6px', width: 28 }}>#</th>
               <th style={{ textAlign: 'left', padding: '4px 6px' }}>종목(발행사)</th>
               <th style={{ textAlign: 'right', padding: '4px 6px' }}>비중</th>
@@ -144,6 +146,7 @@ export default function GuruPortfolioPage() {
               ))}
             </tbody>
           </table>
+          </div>
           {data.bondLines > 0 && <div style={{ fontSize: FS.micro, color: TK.sub2 }}>채권 등 {data.bondLines}줄({fmtB(data.bondVal)})은 수량이 주식 수가 아니라 액면이라 이 표에서 뺐습니다.</div>}
         </div>
       )}
