@@ -62,7 +62,7 @@ export default function GuruConsensusPanel() {
           {(() => {
             const b = data.excluded.filter(e => e.why === 'broad').map(e => e.mgr), s = data.excluded.filter(e => e.why === 'stale').map(e => e.mgr)
             return [
-              b.length ? `${b.join(' · ')} — 수천 종목을 사고파는 운용사라 상위 보유가 지수 ETF 입니다(확신 종목이 아니라서 뺌)` : null,
+              b.length ? `${b.join(' · ')} — 수천 종목을 사고파는 운용사라 보유가 곧 확신이라는 뜻이 아닙니다(그래서 뺌)` : null,
               s.length ? `${s.join(' · ')} — 최신 분기 신고가 없어 뺌(지금 보유가 아님)` : null,
             ].filter(Boolean).join(' / ')
           })()}

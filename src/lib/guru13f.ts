@@ -166,7 +166,7 @@ export async function loadFundQuarters(cik: string, n = 8): Promise<QuarterHoldi
   return out
 }
 
-export const FUND_CACHE_KEY = 'shadow-13f-funds-v5'   // v5(2026-11-28): cur·prev 가 주식 줄만 · 옵션(풋/콜) 분리 · 금액 단위 판별 · reportDate·stale·broad · 14명 · v4: cusip 파싱 추가 (export: 크론 헬스 모니터가 SSOT로 감시)
+export const FUND_CACHE_KEY = 'shadow-13f-funds-v6'   // v6(2026-11-28): 코언(포인트72)을 분산형으로 — 묶음에 broad 가 저장돼 있어 옛 값이면 점수에 계속 센다 · v5(2026-11-28): cur·prev 가 주식 줄만 · 옵션(풋/콜) 분리 · 금액 단위 판별 · reportDate·stale·broad · 14명 · v4: cusip 파싱 추가 (export: 크론 헬스 모니터가 SSOT로 감시)
 export async function loadFunds(): Promise<FundData[]> {
   // L1 인메모리
   if (FUND_CACHE.data.length && Date.now() < FUND_CACHE.expiresAt) return FUND_CACHE.data

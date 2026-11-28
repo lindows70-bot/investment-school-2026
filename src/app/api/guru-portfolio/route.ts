@@ -66,7 +66,7 @@ export async function GET(req: Request) {
   const meta = FUNDS.find(f => f.cik === cik) ?? FUNDS.find(f => f.cik === DEFAULT_CIK)!
 
   // 조립 결과(수익률 포함) 6h 캐시 — 일봉 종가는 하루 1회만 바뀌므로 매 요청 가격조회 불필요
-  const cacheKey = `guru-portfolio-v7:${meta.cik}`   // v7(2026-11-28): 주식 줄만 · 옵션(풋/콜) 따로 · reportDate·stale·broad·self · v6: Liberty Live 등 티커 병합 확장
+  const cacheKey = `guru-portfolio-v8:${meta.cik}`   // v8(2026-11-28): 코언을 분산형으로(추정 수익 생략 · 셀렉터 목록의 broad) · v7(2026-11-28): 주식 줄만 · 옵션(풋/콜) 따로 · reportDate·stale·broad·self · v6: Liberty Live 등 티커 병합 확장
   const cached = await getCache<GuruPortfolioResult>(cacheKey, 6 * 3600_000)
   if (cached) return NextResponse.json(cached, { headers: { 'Cache-Control': 'no-store' } })
 

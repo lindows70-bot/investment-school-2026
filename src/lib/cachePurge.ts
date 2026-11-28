@@ -38,7 +38,7 @@ const UNDATED = (prefix: string, ttl: string): PurgeRule => ({ prefix, keepDays:
 
 export const PURGE_RULES: PurgeRule[] = [
   PER_TICKER('jarvis-metrics-v18', '12h'),
-  PER_TICKER('money-flow-v7', '24h'),
+  PER_TICKER('money-flow-v8', '24h'),
   PER_TICKER('jarvis-brief-v6', '20h'),
   PER_TICKER('news-catalyst-v8', '3h'),
   PER_TICKER('kr-intraday-v1', '3h'),

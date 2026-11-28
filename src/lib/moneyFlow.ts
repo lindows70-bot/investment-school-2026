@@ -208,7 +208,7 @@ async function fetch13F(ticker: string, name: string, selfBase?: string): Promis
     if (!r.ok) return { holders: 0, trend: 'none', ok: false }
     const j = (await r.json()) as ShadowResult
     if (j.status !== 'ok' && j.status !== 'none') return { holders: 0, trend: 'none', ok: false }
-    // 수천 종목을 사고파는 운용사(broad — 시타델 · 튜더)는 세지 않는다: 거의 모든 종목을 들고 있어 넣으면 수급 점수(+6 · +14)가 미국 종목 전체에 붙는다
+    // 수천 종목을 사고파는 운용사(broad — 시타델 · 튜더 · 포인트72)는 세지 않는다: 거의 모든 종목을 들고 있어 넣으면 수급 점수(+6 · +14)가 미국 종목 전체에 붙는다
     const conv = (j.holders ?? []).filter(h => !h.broad)
     const owning = conv.filter(h => h.action !== 'exit')
     const adders = owning.filter(h => h.action === 'add' || h.action === 'new').length
@@ -301,7 +301,7 @@ function judgeUs(us: UsFlow, nearHigh: boolean): { status: FlowStatus; badges: s
 }
 
 async function getUsFlow(ticker: string, name: string, base: MoneyFlowResult, selfBase?: string): Promise<MoneyFlowResult> {
-  const cacheKey = `money-flow-v7:${ticker.toUpperCase()}:US`   // 🗓️ 날짜 없는 키 + 오늘(KST)만 — 날짜 키는 영구 누적
+  const cacheKey = `money-flow-v8:${ticker.toUpperCase()}:US`   // v8(2026-11-28): 코언(포인트72)을 거인 보유 인원에서 뺌 — 옛 값은 코언을 세고 있다 · 🗓️ 날짜 없는 키 + 오늘(KST)만 — 날짜 키는 영구 누적
   const cached = await getCache<MoneyFlowResult>(cacheKey, 24 * 3600_000, { sameKstDay: true })
   if (cached) return cached
   try {
@@ -345,7 +345,7 @@ export async function getMoneyFlow(ticker: string, market: 'KR' | 'US', name: st
   const code6 = (ticker.match(/\d{6}/)?.[0]) ?? ''
   if (!code6) return { ...base, status: 'UNSUPPORTED', note: '종목 코드를 확인할 수 없습니다.' }
 
-  const cacheKey = `money-flow-v7:${code6}:KR`   // v7: 외인+기관 이탈+개미독박=하락신호(CROWDED, 고점 무관) · 🗓️ 날짜 없는 키 + 오늘(KST)만
+  const cacheKey = `money-flow-v8:${code6}:KR`   // v8: US 와 접두어를 같이 쓴다(계산은 그대로) · v7: 외인+기관 이탈+개미독박=하락신호(CROWDED, 고점 무관) · 🗓️ 날짜 없는 키 + 오늘(KST)만
   const cached = await getCache<MoneyFlowResult>(cacheKey, 24 * 3600_000, { sameKstDay: true })
   if (cached) return cached
 
