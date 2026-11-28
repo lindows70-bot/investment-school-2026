@@ -11,6 +11,9 @@ const SIG: Record<Signal, { dot: string; color: string; ko: string; bg: string }
   caution: { dot: '🟡', color: TK.amber400, ko: '주의', bg: 'rgba(251,191,36,0.08)' },
   danger: { dot: '🔴', color: TK.red400, ko: '위험', bg: 'rgba(248,113,113,0.09)' },
 }
+// 못 잰 지표(value null)에는 신호색을 입히지 않는다 — 레이더가 "판정에서 뺐다"고 한 지표에 '🟡 주의' 딱지가 붙어 한 화면에서 서로 부정했다(2026-11-28 화면 실측)
+const NONE = { dot: '⚪', color: TK.slate500, ko: '조회 실패', bg: 'transparent' }
+const sigOf = (m: CrisisMetric) => (m.value == null ? NONE : SIG[m.signal])
 
 export default function CrisisRadar() {
   const [d, setD] = useState<CrisisRadarResult | null>(null)
@@ -29,7 +32,7 @@ export default function CrisisRadar() {
             <span style={{ fontSize: 22 }}>{SIG[d.alertLevel].dot}</span>
             <span style={{ color: SIG[d.alertLevel].color, fontWeight: 900, fontSize: 18 }}>글로벌 위기 감지 레이더 — {SIG[d.alertLevel].ko}</span>
             <span style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
-              {d.metrics.map(m => <span key={m.key} title={m.label} style={{ width: 12, height: 12, borderRadius: '50%', background: SIG[m.signal].color }} />)}
+              {d.metrics.map(m => <span key={m.key} title={m.label} style={{ width: 12, height: 12, borderRadius: '50%', background: sigOf(m).color }} />)}
             </span>
           </div>
           <div style={{ color: TK.sub11, fontSize: 12.5, lineHeight: 1.7, marginTop: 8 }}>{d.summary}</div>
@@ -63,14 +66,14 @@ export default function CrisisRadar() {
               </thead>
               <tbody>
                 {d.metrics.map(m => {
-                  const s = SIG[m.signal]
+                  const s = sigOf(m)
                   return (
                     <tr key={m.key} style={{ borderTop: `1px solid ${BORDER}` }}>
                       <td style={{ padding: '8px', color: TK.slate200, fontWeight: 700 }}>{m.icon} {m.label}</td>
                       <td style={{ padding: '8px', color: TK.sub8, fontSize: 10.5 }}>{m.measure}</td>
                       <td style={{ padding: '8px', textAlign: 'right', color: TK.sub8, fontFamily: 'monospace' }}>{m.mean}{m.unit}</td>
                       <td style={{ padding: '8px', textAlign: 'right', color: s.color, fontWeight: 800, fontSize: 13, fontFamily: 'monospace' }}>{m.value != null ? `${m.value}${m.unit}` : '—'}</td>
-                      <td style={{ padding: '8px', color: s.color, fontWeight: 700, fontSize: 11 }}>{s.dot} {m.alertText}</td>
+                      <td style={{ padding: '8px', color: s.color, fontWeight: 700, fontSize: 11 }}>{s.dot} {m.value != null ? m.alertText : '조회 실패 — 판정에서 뺌'}</td>
                     </tr>
                   )
                 })}
@@ -95,7 +98,7 @@ export default function CrisisRadar() {
 
 // 지표별 상세 카드 — 헤더(값·신호) + 역사 미니차트 + 쉬운 설명 + 과거위기 칩
 function MetricCard({ m }: { m: CrisisMetric }) {
-  const s = SIG[m.signal]
+  const s = sigOf(m)
   // 선행 PER 카드는 값=선행(20)이나 차트는 후행 30년 → 차트 기준선은 후행 규격(평균16·위험25)
   const dangerY = m.key === 'pe' ? 25 : m.gauge.t2
   const meanY = m.key === 'pe' ? 16 : m.mean
@@ -172,7 +175,7 @@ function mdBold(t: string): string {
 
 // 반원 게이지
 function Gauge({ m }: { m: CrisisMetric }) {
-  const s = SIG[m.signal]
+  const s = sigOf(m)
   const { min, max, t1, t2, invert } = m.gauge
   const clamp = (v: number) => Math.max(min, Math.min(max, v))
   const ang = (v: number) => Math.PI - ((clamp(v) - min) / (max - min)) * Math.PI
@@ -187,7 +190,7 @@ function Gauge({ m }: { m: CrisisMetric }) {
     <div style={{ background: TK.bg3, borderRadius: 9, border: `1px solid ${BORDER}`, padding: '8px 8px 6px', textAlign: 'center' }}>
       <svg viewBox="0 0 160 90" style={{ width: '100%', height: 'auto', display: 'block' }}>
         {segs.map(([a, b, c], i) => <g key={i}>{arc(a as number, b as number, c as string)}</g>)}
-        <line x1={cx} y1={cyy} x2={cx + (R - 6) * Math.cos(ang(nv))} y2={cyy - (R - 6) * Math.sin(ang(nv))} stroke="#fff" strokeWidth="2.5" strokeLinecap="round" />
+        {m.value != null && <line x1={cx} y1={cyy} x2={cx + (R - 6) * Math.cos(ang(nv))} y2={cyy - (R - 6) * Math.sin(ang(nv))} stroke="#fff" strokeWidth="2.5" strokeLinecap="round" />}
         <circle cx={cx} cy={cyy} r="4" fill="#fff" />
         <text x={cx} y={cyy - 20} fill={s.color} fontSize="18" fontWeight="900" textAnchor="middle">{m.value != null ? m.value : '—'}</text>
         <text x={cx} y={cyy - 7} fill={TK.sub2} fontSize="8" textAnchor="middle">{m.unit}</text>
