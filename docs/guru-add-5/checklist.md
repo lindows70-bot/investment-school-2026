@@ -29,6 +29,7 @@
 ## 4. 검증 · 기록
 - [x] 단위 검사 10건(`verify-shared-libs`) — 파서 · 짝 맞춤 · 분기말 경계 · 티커 정규화
 - [x] 프로덕션 불변식 `verify-guru-funds.mjs` + 야간 감사 등록
-- [ ] `npm run check` · `npm run check:build`
-- [ ] 배포 뒤 프로덕션 불변식 · 세 폭(1280 · 768 · 375) 화면
-- [ ] `docs/history/2026-11.md` · `docs/README.md`
+- [x] `npm run check` · `npm run check:build`
+- [x] 배포 뒤 프로덕션 불변식(`verify-guru-funds` 전부 통과 · 11/28)
+- [ ] 세 폭(1280 · 768 · 375) 화면 — 로그인 필요
+- [x] `docs/history/2026-11.md` · `docs/README.md`
